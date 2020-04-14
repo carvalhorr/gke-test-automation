@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
 	containerpb "google.golang.org/genproto/googleapis/container/v1"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type GKEFacade interface {
 	GetClusterInfo(name string) (*containerpb.Cluster, error)
 	DeleteCluster(name string) error
 	WaitClusterReady(name string) error
+	CreateK8sConfig(name string) (string, error)
 }
 
 func NewGKEService(gcpConfigFilePath string, project string, region string) (GKEFacade, error) {
@@ -85,3 +87,41 @@ func (gcp *gkeService) WaitClusterReady(name string) error {
 	}
 	return nil
 }
+
+func (gcp *gkeService) CreateK8sConfig(name string) (string, error) {
+	clusterInfo, err := gcp.GetClusterInfo(name)
+	if err != nil {
+		log.Errorf("Failed to get cluster info for cluster %s with error: %s", name, err.Error())
+		return "", err
+	}
+	config := strings.ReplaceAll(clusterConfigTemplate, "$NAME", name)
+	config = strings.ReplaceAll(config, "$ENDPOINT", clusterInfo.Endpoint)
+	config = strings.ReplaceAll(config, "$CERTIFICATE", clusterInfo.MasterAuth.ClusterCaCertificate)
+	return config, nil
+}
+
+var clusterConfigTemplate = `apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: $CERTIFICATE
+    server: $ENDPOINT
+  name: $NAME
+contexts:
+- context:
+    cluster: $NAME
+    user: $NAME
+  name: $NAME
+current-context: $NAME
+kind: Config
+preferences: {}
+users:
+- name: $NAME
+  user:
+    auth-provider:
+      config:
+        cmd-args: config config-helper --format=json
+        cmd-path: /Users/rdecarvalho/google-cloud-sdk/bin/gcloud
+        expiry-key: '{.credential.token_expiry}'
+        token-key: '{.credential.access_token}'
+      name: gcp
+`
