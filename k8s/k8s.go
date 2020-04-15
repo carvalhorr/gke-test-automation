@@ -6,17 +6,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	//
-	// Uncomment to load all auth plugins
-	// _ "k8s.io/client-go/plugin/pkg/client/auth"
-	//
-	// Or uncomment to load specific auth plugins
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/azure"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
 )
 
+// Create a new k8s service
+// Takes a ./kube/config file path and a namespace. The namespace is optional.
 func NewK8sService(k8sConfigFile string, namespace string) K8sFacade {
 	return &k8sService{
 		ConfigFile: k8sConfigFile,
@@ -24,6 +17,7 @@ func NewK8sService(k8sConfigFile string, namespace string) K8sFacade {
 	}
 }
 
+// Expose functions to interact with a kubernetes cluster
 type K8sFacade interface {
 	GetPortForService(serviceName string, portName string) (int32, error)
 }
@@ -33,6 +27,8 @@ type k8sService struct {
 	Namespace  string
 }
 
+// Return the external port that a service is running.
+// Takes the service name and the port name as parameters. This function expects the port is named
 func (k8s *k8sService) GetPortForService(serviceName string, portName string) (int32, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", k8s.ConfigFile)
 	if err != nil {
